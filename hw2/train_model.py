@@ -12,6 +12,7 @@ from transformers import BertTokenizerFast, BertForSequenceClassification, \
     Trainer, TrainingArguments, EvalPrediction
 
 
+
 def preprocess_dataset(dataset: Dataset, tokenizer: BertTokenizerFast) \
         -> Dataset:
     """
@@ -24,7 +25,11 @@ def preprocess_dataset(dataset: Dataset, tokenizer: BertTokenizerFast) \
     :param tokenizer: A tokenizer
     :return: The dataset, prepreprocessed using the tokenizer
     """
-    raise NotImplementedError("Problem 1d has not been completed yet!")
+    def tokenize_function(examples):
+        return tokenizer(examples["text"], padding="max_length", truncation=True)
+    
+    tokenized_datasets = dataset.map(tokenize_function, batched=True)
+    return tokenized_datasets
 
 
 def init_model(trial: Any, model_name: str, use_bitfit: bool = False) -> \
@@ -46,7 +51,14 @@ def init_model(trial: Any, model_name: str, use_bitfit: bool = False) -> \
         than bias terms
     :return: A newly initialized pre-trained Transformer classifier
     """
-    raise NotImplementedError("Problem 2a has not been completed yet!")
+    model = BertForSequenceClassification.from_pretrained(model_name, num_labels=2, torch_dtype="auto")
+    if use_bitfit:
+        for name, param in model.named_parameters():
+            if "bias" not in name:
+                param.requires_grad = False
+    
+    return model
+
 
 
 def init_trainer(model_name: str, train_data: Dataset, val_data: Dataset,
@@ -65,8 +77,28 @@ def init_trainer(model_name: str, train_data: Dataset, val_data: Dataset,
     :param use_bitfit: If True, then all parameters will be frozen other
         than bias terms
     :return: A Trainer used for training
+    
     """
-    raise NotImplementedError("Problem 2b has not been completed yet!")
+    # def compute_metrics(eval_pred):
+    #     logits, labels = eval_pred
+    #     predictions = np.argmax(logits, axis=-1)
+    #     return metric.compute(predictions=predictions, references=labels)
+
+    training_args = TrainingArguments(
+        output_dir="./results",
+        num_train_epochs=4,
+        learning_rate=3e-4,
+        evaluation_strategy="epoch"
+    )
+
+    trainer = Trainer(
+        model_init=lambda _: init_model(_, model_name, use_bitfit),
+        args=training_args,
+        train_dataset=train_data,
+        eval_dataset=val_data,
+        compute_metrics=evaluate.compute_metrics
+    )
+    return trainer
 
 
 def hyperparameter_search_settings() -> Dict[str, Any]:
