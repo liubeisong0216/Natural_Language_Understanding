@@ -1,3 +1,6 @@
-__pyache__
-checkpoints
-hw2_venv
+hw1/__pyache__
+hw1/data/
+hw2/checkpoints
+hw2/hw2_venv/
+hw2/final
+hw3/__pyache__
