@@ -3,6 +3,7 @@ Code for Problem 1 of HW 2.
 """
 import pickle
 from typing import Any, Dict
+import torch
 
 import evaluate
 import numpy as np
@@ -11,6 +12,11 @@ from datasets import Dataset, load_dataset
 from transformers import BertTokenizerFast, BertForSequenceClassification, \
     Trainer, TrainingArguments, EvalPrediction
 
+def compute_metrics(eval_pred: EvalPrediction) -> Dict[str, float]:
+        logits, labels = eval_pred
+        predictions = np.argmax(logits, axis=-1)
+        accuracy = np.mean(predictions == labels)
+        return {"accuracy": accuracy}
 
 
 def preprocess_dataset(dataset: Dataset, tokenizer: BertTokenizerFast) \
@@ -26,7 +32,7 @@ def preprocess_dataset(dataset: Dataset, tokenizer: BertTokenizerFast) \
     :return: The dataset, prepreprocessed using the tokenizer
     """
     def tokenize_function(examples):
-        return tokenizer(examples["text"], padding="max_length", truncation=True)
+        return tokenizer(examples["text"], padding="max_length", truncation=True, max_length=512)
     
     tokenized_datasets = dataset.map(tokenize_function, batched=True)
     return tokenized_datasets
@@ -57,6 +63,9 @@ def init_model(trial: Any, model_name: str, use_bitfit: bool = False) -> \
             if "bias" not in name:
                 param.requires_grad = False
     
+    trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    print(f"Trainable parameters: {trainable_params}")
+
     return model
 
 
@@ -79,42 +88,70 @@ def init_trainer(model_name: str, train_data: Dataset, val_data: Dataset,
     :return: A Trainer used for training
     
     """
-    # def compute_metrics(eval_pred):
-    #     logits, labels = eval_pred
-    #     predictions = np.argmax(logits, axis=-1)
-    #     return metric.compute(predictions=predictions, references=labels)
-
     training_args = TrainingArguments(
-        output_dir="./results",
-        num_train_epochs=4,
-        learning_rate=3e-4,
-        evaluation_strategy="epoch"
+        output_dir="checkpoints_with_bitfit",            
+        num_train_epochs=4,                  
+        per_device_train_batch_size=8,       
+        per_device_eval_batch_size=8,        
+        evaluation_strategy="epoch",         
+        save_strategy="epoch",               
+        load_best_model_at_end=True,       
+        metric_for_best_model="eval_accuracy",    
+        greater_is_better=True,              
+        seed=3463                            
     )
 
+
     trainer = Trainer(
-        model_init=lambda _: init_model(_, model_name, use_bitfit),
+        model_init=lambda: init_model(None, model_name, use_bitfit=use_bitfit),
         args=training_args,
         train_dataset=train_data,
         eval_dataset=val_data,
-        compute_metrics=evaluate.compute_metrics
+        compute_metrics=compute_metrics,
     )
+
     return trainer
+
 
 
 def hyperparameter_search_settings() -> Dict[str, Any]:
     """
-    Problem 2c: Implement this function.
-
-    Returns keyword arguments passed to Trainer.hyperparameter_search.
-    Your hyperparameter search must satisfy the criteria listed in the
-    problem set.
-
-    :return: Keyword arguments for Trainer.hyperparameter_search
+    Returns keyword arguments to pass to Trainer.hyperparameter_search.
+    We define a full grid over:
+    
+    - lr: [3e-4, 1e-4, 5e-5, 3e-5]
+    - batch_size: [8, 16, 32, 64, 128]
+    
+    This ensures every combination is tested (4 * 5 = 20 trials).
+    We also set the search direction to "maximize" for accuracy.
     """
-    raise NotImplementedError("Problem 2c has not been completed yet!")
+
+    
+    search_space = {
+        'learning_rate': [3e-4, 1e-4, 5e-5, 3e-5],
+        'per_device_train_batch_size': [8, 16, 32, 64, 128]
+    }
+
+    def optuna_hp_space(trial):
+        return {
+            "learning_rate": trial.suggest_categorical("learning_rate", search_space['learning_rate']),
+            "per_device_train_batch_size": trial.suggest_categorical("per_device_train_batch_size", search_space['per_device_train_batch_size'])
+        }
+
+    
+    return {
+        "sampler": optuna.samplers.GridSampler(search_space),
+        "direction": "maximize",
+        "backend": "optuna",
+        "n_trials": 20,
+        "hp_space": optuna_hp_space 
+    }
+
+
 
 
 if __name__ == "__main__":  # Use this script to train your model
+    print(torch.cuda.is_available())
     model_name = "prajjwal1/bert-tiny"
 
     # Load IMDb dataset and create validation split
@@ -137,5 +174,5 @@ if __name__ == "__main__":  # Use this script to train your model
 
     # Train and save the best hyperparameters
     best = trainer.hyperparameter_search(**hyperparameter_search_settings())
-    with open("train_results.p", "wb") as f:
+    with open("train_results_with_bitfit.p", "wb") as f:
         pickle.dump(best, f)
