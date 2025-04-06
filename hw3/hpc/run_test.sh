@@ -1,0 +1,1 @@
+python truthfulqa.py facebook/opt-1.3b --no-demos
