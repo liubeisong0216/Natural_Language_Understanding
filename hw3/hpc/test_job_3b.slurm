@@ -12,8 +12,8 @@
 #SBATCH --job-name=truthfulqa
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=bl1986@nyu.edu
-#SBATCH --output="truthfulqa.out"
-#SBATCH --error=truthfulqa.err
+#SBATCH --output="truthfulqa_3b.out"
+#SBATCH --error=truthfulqa_3b.err
 
 module purge
 cd /scratch/bl1986/NLU/
@@ -27,5 +27,5 @@ singularity exec --nv \
 		source /ext3/miniconda3/etc/profile.d/conda.sh
 		conda activate
 		cd /scratch/bl1986/NLU/
-		bash hpc/run_truthfulqa_evaluation.sh
+		bash hpc/run_3b.sh
 	"

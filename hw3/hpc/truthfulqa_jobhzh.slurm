@@ -11,21 +11,21 @@
 #SBATCH --gres=gpu:1
 #SBATCH --job-name=truthfulqa
 #SBATCH --mail-type=ALL
-#SBATCH --mail-user=bl1986@nyu.edu
+#SBATCH --mail-user=zh1461@nyu.edu
 #SBATCH --output="truthfulqa.out"
 #SBATCH --error=truthfulqa.err
 
 module purge
-cd /scratch/bl1986/NLU/
-OVERLAY_FILE=/scratch/bl1986/overlay-25GB-500K.ext3:rw
+cd /scratch/zh1461/hw3/hzh_hw3
+OVERLAY_FILE=/scratch/zh1461/overlay-25GB-500K.ext3:rw
 SINGULARITY_IMAGE=/scratch/bl1986/cuda11.4.2-cudnn8.2.4-devel-ubuntu20.04.3.sif
 
 singularity exec --nv \
-		--bind /scratch/bl1986/ \
+		--bind /scratch/zh1461/ \
 	    --overlay $OVERLAY_FILE $SINGULARITY_IMAGE \
 	    /bin/bash -c "
 		source /ext3/miniconda3/etc/profile.d/conda.sh
 		conda activate
-		cd /scratch/bl1986/NLU/
+		cd /scratch/zh1461/NLU/
 		bash hpc/run_truthfulqa_evaluation.sh
 	"

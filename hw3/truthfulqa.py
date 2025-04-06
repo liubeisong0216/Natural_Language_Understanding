@@ -195,11 +195,8 @@ class MultipleChoicePipeline(Pipeline):
             These tensors should be stored on the GPU if it is being
             used; otherwise, they should be stored on the CPU
         """
-        # Generate a list of input texts using the _get_input_texts helper.
+
         input_texts = self._get_input_texts(batch)
-        
-        # Tokenize the input texts.
-        # Here, we enable padding and truncation so that all inputs have the same length.
         encodings = self.tokenizer(
             input_texts,
             return_tensors="pt",
@@ -207,7 +204,6 @@ class MultipleChoicePipeline(Pipeline):
             truncation=True
         )
     
-        # Move the encoded tensors to the correct device (GPU if available)
         encodings = {key: tensor.to(self.device) for key, tensor in encodings.items()}
 
         return encodings
@@ -253,38 +249,28 @@ class MultipleChoicePipeline(Pipeline):
             choice j
         """
 
-        # Extract logits and input_ids from outputs.
         logits = outputs["logits"]   # shape: (N, L, vocab_size)
         input_ids = outputs["input_ids"]  # shape: (N, L)
         
-        # For causal LM, we shift the logits and labels:
+        # For causal LM, shift the logits and labels:
         # We use logits[:, :-1, :] to predict tokens for input_ids[:, 1:].
         shift_logits = logits[:, :-1, :]  # shape: (N, L-1, vocab_size)
         shift_labels = input_ids[:, 1:]     # shape: (N, L-1)
         
-        # Compute per-token cross-entropy loss.
-        # Flatten the logits and labels so that loss_fn can process them.
         vocab_size = shift_logits.size(-1)
         loss_tensor = self.loss_fn(
             shift_logits.contiguous().view(-1, vocab_size), 
             shift_labels.contiguous().view(-1)
-        )  # shape: (N*(L-1),)
+        )
         
-        # Reshape the loss back to (N, L-1) and sum over tokens to get total loss per input text.
         loss_tensor = loss_tensor.view(shift_logits.size(0), shift_logits.size(1)).sum(dim=1)
-        # Now loss_tensor has shape (N,), where N is the number of input texts.
-        
-        # Reshape losses into a matrix with one row per question and one column per answer choice.
-        # self.num_choices is the number of choices per question.
         num_choices = self.num_choices
         total_examples = loss_tensor.size(0)
-        num_questions = total_examples // num_choices  # each question contributes num_choices examples.
-        loss_matrix = loss_tensor.view(num_questions, num_choices)  # shape: (num_questions, num_choices)
+        num_questions = total_examples // num_choices 
+        loss_matrix = loss_tensor.view(num_questions, num_choices)
         
-        # For each question, select the answer choice with the minimum loss.
         prediction = loss_matrix.argmin(dim=1)
-        
-        # Convert the losses and predictions to numpy arrays.
+
         loss_np = loss_matrix.cpu().numpy().astype(np.float32)
         pred_np = prediction.cpu().numpy()
         
