@@ -16,7 +16,7 @@
 #SBATCH --error=hpc_test.err
 
 module purge
-cd /home/bl1986/
+cd /home/bl1986/Natural_Language_Understanding
 OVERLAY_FILE=/scratch/bl1986/test_singularity/overlay-25GB-500K.ext3:rw
 SINGULARITY_IMAGE=/scratch/bl1986/test_singularity/cuda11.4.2-cudnn8.2.4-devel-ubuntu20.04.3.sif
 
