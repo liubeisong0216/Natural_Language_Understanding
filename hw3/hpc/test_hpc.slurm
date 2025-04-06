@@ -21,7 +21,7 @@ OVERLAY_FILE=/scratch/bl1986/test_singularity/overlay-25GB-500K.ext3:rw
 SINGULARITY_IMAGE=/scratch/bl1986/test_singularity/cuda11.4.2-cudnn8.2.4-devel-ubuntu20.04.3.sif
 
 singularity exec --nv \
-		--bind /scratch/bl1986/test_singularity \
+		--bind /home/bl1986/Natural_Language_Understanding/hw3 \
 	    --overlay $OVERLAY_FILE $SINGULARITY_IMAGE \
 	    /bin/bash -c "
 		source /ext3/miniconda3/etc/profile.d/conda.sh
